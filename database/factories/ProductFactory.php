@@ -25,6 +25,7 @@ class ProductFactory extends Factory
             ]),
             'price' => $this->faker->randomFloat(0, 75, 1400),
             'description' => $this->faker->paragraph(),
+            'stock' => $this->faker->randomNumber(3),
             'image' => $this->faker->imageUrl(400, 400, 'products'),
             'category' => $this->faker->randomElement([
                 'Протеиновые батончики и печенье',
