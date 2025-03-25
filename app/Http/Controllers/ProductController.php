@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductImage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -34,11 +36,24 @@ class ProductController extends Controller
                 'price' => 'required|numeric|min:0',
                 'description' => 'required|string',
                 'stock' => 'required|numeric|min:0|max:2000',
-                'image' => 'nullable|string',
-                'category' => 'required|string'
+                'category' => 'required|string',
+                'images' => 'nullable|array',
+                'images.*' => 'image|max:2048',
             ]);
 
             $product = Product::create(($validated));
+
+            if ($request->hasFile('images')) {
+                foreach ($request->file('images') as $image) {
+                    $path = $image->store('products', 'public');
+
+                    $product->images()->create([
+                        'path' => $path,
+                    ]);
+                }
+            }
+
+            $product->load('images');
             return response()->json([$product, 'message' => 'Product created successfully'], 201);
         } catch (\Exception $e) {
         return response()->json([
@@ -85,11 +100,41 @@ class ProductController extends Controller
                 'price' => 'required|numeric|min:0',
                 'description' => 'required|string',
                 'stock' => 'required|numeric|min:0|max:2000',
-                'image' => 'nullable|string',
                 'category' => 'required|string'
             ]);
 
             $product->update($validated);
+
+
+            if ($request->hasFile('images')) {
+                foreach ($request->file('images') as $image) {
+                    $path = $image->store('products', 'public');
+
+                    $product->images()->create([
+                        'path' => $path,
+                    ]);
+                }
+            }
+
+            if ($request->has('imagesToDelete')) {
+                $imagesToDelete = json_decode($request->input('imagesToDelete'), true);
+                if ($imagesToDelete && is_array($imagesToDelete)) {
+                    foreach ($imagesToDelete as $imageId) {
+                        $image = ProductImage::find($imageId);
+
+                        if ($image) {
+                            if (Storage::disk('public')->exists($image->path)) {
+                                Storage::disk('public')->delete($image->path);
+                            }
+
+                            $image->delete();
+                        }
+                    }
+                }
+
+            }
+
+            $product->load('images');
             return response()->json([$product, 'message' => 'Product updated successfully']);
         } catch (\Exception $e) {
            return response()->json([

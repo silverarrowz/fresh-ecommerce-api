@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -21,7 +22,14 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
         ]);
 
-        Product::factory()->count(10)->create();
+        Product::factory()->count(10)->create()
+        ->each(function ($product) {
+            ProductImage::factory()->count(3)->create([
+                'product_id' => $product->id,
+            ]);
+        });
+
+
 
     }
 }
