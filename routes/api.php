@@ -5,6 +5,7 @@ use App\Http\Controllers\ProductImageController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\CartController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -27,3 +28,11 @@ Route::post('/products', [ProductController::class, 'store']);
 Route::put('/products/{product}', [ProductController::class, 'update']);
 
 Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+
+// Корзины пользователей
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/cart', [CartController::class, 'index']);
+    Route::post('/cart', [CartController::class, 'store']);
+    Route::delete('/cart/{id}', [CartController::class, 'destroy']);
+});
