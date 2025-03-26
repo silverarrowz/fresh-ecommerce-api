@@ -24,6 +24,7 @@ class ProductFactory extends Factory
                 'Fresh Iron'
             ]),
             'price' => $this->faker->randomFloat(0, 75, 1400),
+            'price_old' => fake()->randomFloat(0, 100, 2800),
             'description' => $this->faker->paragraph(),
             'stock' => $this->faker->randomNumber(3),
 
