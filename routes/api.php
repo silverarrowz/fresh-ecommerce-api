@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\CartController;
+use App\Http\Middleware\IsAdmin;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -20,19 +21,25 @@ Route::middleware('auth:sanctum')->group(function () {
 // Продукты
 
 Route::get('/products', [ProductController::class, 'index']);
+Route::get('/products/paginated', [ProductController::class, 'getPaginatedProducts']);
+Route::get('/products/tags', [ProductController::class,'getByTag']);
 
 Route::get('/products/{id}', [ProductController::class, 'show']);
 
-Route::post('/products', [ProductController::class, 'store']);
 
-Route::put('/products/{product}', [ProductController::class, 'update']);
+Route::middleware([IsAdmin::class])->group(function () {
+    Route::post('/products', [ProductController::class, 'store']);
+    Route::put('/products/{product}', [ProductController::class, 'update']);
+    Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+});
 
-Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+
 
 // Корзины пользователей
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/cart', [CartController::class, 'index']);
     Route::post('/cart', [CartController::class, 'store']);
-    Route::delete('/cart/{id}', [CartController::class, 'destroy']);
+    Route::put('/cart/{productId}', [CartController::class, 'update']);
+    Route::delete('/cart/{productId}', [CartController::class, 'destroy']);
 });

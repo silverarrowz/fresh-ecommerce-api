@@ -15,6 +15,10 @@ class Product extends Model
 
     protected $with = ['images'];
 
+    protected $casts = [
+        'tags' => 'array',
+    ];
+
     public function images() {
         return $this->hasMany((ProductImage::class));
     }

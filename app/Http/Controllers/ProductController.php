@@ -17,6 +17,19 @@ class ProductController extends Controller
         return response()->json(Product::all());
     }
 
+    public function getPaginatedProducts(Request $request)
+    {
+        $perPage = $request->input('per_page', 8);
+        return response()->json(Product::paginate($perPage));
+    }
+
+    public function getByTag(Request $request) {
+        $tag = $request->input('tag');
+        $products = Product::whereJsonContains('tags', $tag)->get();
+
+        return response()->json($products);
+    }
+
     /**
      * Show the form for creating a new resource.
      */
