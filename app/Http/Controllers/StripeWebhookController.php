@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Stripe\Exception\SignatureVerificationException;
@@ -28,17 +29,23 @@ class StripeWebhookController extends Controller
         if ($event->type === 'checkout.session.completed') {
             $session = $event->data->object;
 
-            Log::info('Checkout session completed ', (array) $session);
-
             $orderId = $session->metadata->order_id ?? null;
             $order = Order::find($orderId);
 
             if ($order) {
                 $order->payment_status = 'paid';
                 $order->save();
+
+                $userId = $order->user_id;
+                $user = User::find($userId);
+                if ($user) {
+                    $cart = $user->cart()->first();
+                   if ($cart) {
+                    $cart->items()->delete();
+                   }
+                }
             }
 
-            Log::info(`Payment succeeded for session  $session->id`);
         }
 
         return response('Webhook received',200);
