@@ -10,11 +10,20 @@ use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
 {
+    public function index()
+    {
+        $user = Auth::user();
+        $orders = Order::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json(['orders' => $orders]);
+    }
+
     public function store(Request $request)
     {
         $user = Auth::user();
 
-        // Validate incoming request
         $validator = Validator::make($request->all(), [
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|integer|exists:products,id',
@@ -25,21 +34,23 @@ class OrderController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $validated = $validator->validated();
 
         $items = [];
         $total = 0;
 
-        // Calculate total and fetch product details
-        foreach ($validated['items'] as $item) {
+
+        foreach ($request->input('items') as $item) {
             $product = Product::findOrFail($item['product_id']);
             $price = $product->price;
             $quantity = $item['quantity'];
             $subtotal = $price * $quantity;
 
+            $image = $product->images->first()->path ?? null;
+
             $items[] = [
                 'product_id' => $product->id,
                 'title' => $product->title,
+                'image' => $image,
                 'price' => $price,
                 'quantity' => $quantity,
                 'subtotal' => $subtotal,
@@ -48,12 +59,12 @@ class OrderController extends Controller
             $total += $subtotal;
         }
 
-        // Save order
+
         $order = Order::create([
             'user_id' => $user ? $user->id : null,
             'items' => $items,
             'total' => $total,
-            'payment_status' => 'pending', // We'll update after Stripe checkout
+            'payment_status' => 'pending',
         ]);
 
         return response()->json(['order' => $order], 201);

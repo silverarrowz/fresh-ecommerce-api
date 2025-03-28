@@ -8,6 +8,7 @@ use App\Http\Middleware\IsAdmin;
 use App\Http\Controllers\Api\StripeController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\StripeWebhookController;
+use App\Models\Order;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -18,9 +19,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/orders', [OrderController::class, 'store']);
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::get('/orders/by-session/{id}', function ($id) {
+        return Order::where('stripe_session_id', $id)->firstOrFail();
+    });
+
 
     Route::post('/checkout', [StripeController::class, 'createCheckoutSession']);
-
 });
 
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);

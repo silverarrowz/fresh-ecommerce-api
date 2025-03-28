@@ -32,6 +32,21 @@ class StripeController extends Controller
                 return response()->json(['error' => 'Product not found'], 404);
             }
 
+            $price = $product->price;
+            $quantity = $item['quantity'];
+            $subtotal = $price * $quantity;
+
+            $image = optional($product->images->first())->path ?? null;
+
+            $enrichedItems[] = [
+                'product_id' => $product->id,
+                'title' => $product->title,
+                'price' => $price,
+                'quantity' => $quantity,
+                'image' => $image,
+                'subtotal' => $subtotal,
+            ];
+
             $lineItems[] = [
                 'price_data' => [
                     'currency' => 'rub',
@@ -50,7 +65,7 @@ class StripeController extends Controller
 
         $order = Order::create([
             'user_id' => $user->id,
-            'items' => $items,
+            'items' => $enrichedItems,
             'total' => $total,
             'payment_status' => 'pending',
 
@@ -60,7 +75,7 @@ class StripeController extends Controller
             'line_items' => $lineItems,
             'mode' => 'payment',
             'payment_method_types' => ['card'],
-            'success_url' => env('STRIPE_SUCCESS_URL'),
+            'success_url' => env('STRIPE_SUCCESS_URL') . '?session_id={CHECKOUT_SESSION_ID}',
             'cancel_url' => env('STRIPE_CANCEL_URL'),
             'metadata' => [
                 'user_id' => $user->id,
