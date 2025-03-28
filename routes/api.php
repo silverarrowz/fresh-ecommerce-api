@@ -1,12 +1,12 @@
 <?php
 
 use App\Http\Controllers\ProductController;
-use App\Http\Controllers\ProductImageController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Middleware\IsAdmin;
+use App\Http\Controllers\Api\StripeController;
+use App\Http\Controllers\OrderController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -16,13 +16,19 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
+    Route::post('/orders', [OrderController::class, 'store']);
+
+    Route::post('/checkout', [StripeController::class, 'createCheckoutSession']);
+
 });
+
+
 
 // Продукты
 
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/paginated', [ProductController::class, 'getPaginatedProducts']);
-Route::get('/products/tags', [ProductController::class,'getByTag']);
+Route::get('/products/tags', [ProductController::class, 'getByTag']);
 
 Route::get('/products/{id}', [ProductController::class, 'show']);
 
