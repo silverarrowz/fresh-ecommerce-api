@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Stripe\Stripe;
 use Stripe\Checkout\Session;
-use Stripe\Exception\ApiErrorException;
+
 
 class StripeController extends Controller
 {
@@ -48,6 +48,14 @@ class StripeController extends Controller
 
         Stripe::setApiKey(config('stripe.secret'));
 
+        $order = Order::create([
+            'user_id' => $user->id,
+            'items' => $items,
+            'total' => $total,
+            'payment_status' => 'pending',
+
+        ]);
+
         $session = Session::create([
             'line_items' => $lineItems,
             'mode' => 'payment',
@@ -56,16 +64,14 @@ class StripeController extends Controller
             'cancel_url' => env('STRIPE_CANCEL_URL'),
             'metadata' => [
                 'user_id' => $user->id,
+                'order_id' => $order->id,
             ]
         ]);
 
-        $order = Order::create([
-            'user_id' => $user->id,
-            'items' => $items,
-            'total' => $total,
-            'status' => 'pending',
-            'stripe_ession_id' => $session->id,
+        $order->update([
+            'stripe_session_id' => $session->id,
         ]);
+
 
         return response()->json([
             'url' => $session->url

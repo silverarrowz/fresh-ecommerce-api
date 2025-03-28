@@ -7,6 +7,7 @@ use App\Http\Controllers\CartController;
 use App\Http\Middleware\IsAdmin;
 use App\Http\Controllers\Api\StripeController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\StripeWebhookController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -21,6 +22,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/checkout', [StripeController::class, 'createCheckoutSession']);
 
 });
+
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
 
 
 

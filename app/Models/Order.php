@@ -11,7 +11,7 @@ class Order extends Model
         'items',
         'total',
         'payment_status',
-        'payment_intent_id',
+        'stripe_session_id'
     ];
 
     protected $casts = [
