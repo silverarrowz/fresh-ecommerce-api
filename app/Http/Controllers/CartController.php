@@ -91,7 +91,7 @@ public function update(Request $request, $productId)
     $cartItem->quantity = $validated['quantity'];
     $cartItem->save();
 
-    return $this->index($request); // Return updated cart
+    return $this->index($request);
 }
 
 
@@ -117,7 +117,7 @@ public function destroy(Request $request, $productId)
 
     $cartItem->delete();
 
-    return $this->index($request); // Return updated cart
+    return $this->index($request);
 }
 
 }

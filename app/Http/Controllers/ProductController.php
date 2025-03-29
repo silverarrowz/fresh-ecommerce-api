@@ -14,13 +14,18 @@ class ProductController extends Controller
      */
     public function index()
     {
-        return response()->json(Product::all());
+        return response()->json(Product::latest()->get());
     }
 
     public function getPaginatedProducts(Request $request)
     {
         $perPage = $request->input('per_page', 8);
         return response()->json(Product::paginate($perPage));
+    }
+
+    public function getLatest()
+    {
+        return response()->json(Product::latest()->take(10)->get());
     }
 
     public function getByTag(Request $request) {

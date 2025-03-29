@@ -35,6 +35,7 @@ Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
 
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/paginated', [ProductController::class, 'getPaginatedProducts']);
+Route::get('/products/latest', [ProductController::class,'getLatest']);
 Route::get('/products/tags', [ProductController::class, 'getByTag']);
 
 Route::get('/products/{id}', [ProductController::class, 'show']);

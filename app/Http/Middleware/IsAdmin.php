@@ -18,7 +18,6 @@ class IsAdmin
 
     public function handle(Request $request, Closure $next): Response
     {
-
         if (!$request->user()?->isAdmin()) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
