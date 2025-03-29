@@ -31,7 +31,6 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle']);
 
 
-
 // Продукты
 
 Route::get('/products', [ProductController::class, 'index']);
@@ -41,7 +40,7 @@ Route::get('/products/tags', [ProductController::class, 'getByTag']);
 Route::get('/products/{id}', [ProductController::class, 'show']);
 
 
-Route::middleware([IsAdmin::class])->group(function () {
+Route::middleware(['auth:sanctum', IsAdmin::class])->group(function () {
     Route::post('/products', [ProductController::class, 'store']);
     Route::put('/products/{product}', [ProductController::class, 'update']);
     Route::delete('/products/{id}', [ProductController::class, 'destroy']);
