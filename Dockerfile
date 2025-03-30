@@ -22,9 +22,11 @@ RUN apt-get update && apt-get install -y \
     optipng \
     pngquant \
     gifsicle \
-    svgo \
+    nodejs \
+    npm \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
-    && docker-php-ext-install pdo pdo_pgsql mbstring zip exif pcntl bcmath gd
+    && docker-php-ext-install pdo pdo_pgsql mbstring zip exif pcntl bcmath gd \
+    && npm install -g svgo
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
