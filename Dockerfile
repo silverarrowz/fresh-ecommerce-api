@@ -15,15 +15,31 @@ RUN apt-get update && apt-get install -y \
     curl \
     vim \
     libzip-dev \
-    libpq-dev \
-    jpegoptim \
-    optipng \
-    pngquant \
-    gifsicle \
-    svgo \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd pdo pdo_pgsql mbstring zip exif pcntl bcmath \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    libpq-dev
+
+RUN docker-php-ext-install gd pdo pdo_pgsql mbstring zip exif pcntl bcmath && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+
+# spatie/laravel-image-optimizer
+RUN apt-get install -y jpegoptim
+RUN apt-get install -y optipng
+RUN apt-get install -y pngquant
+RUN apt-get install -y gifsicle
+RUN apt-get install -y webp
+RUN apt-get install -y libavif-bin
+RUN npm install -y -g svgo
+# gd
+RUN apt-get install -y \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev \
+    libwebp-dev \
+    libxpm-dev \
+    zlib1g-dev && \
+    docker-php-ext-configure gd --enable-gd --with-webp --with-jpeg \
+    --with-xpm --with-freetype && \
+    docker-php-ext-install -j$(nproc) gd
+
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
