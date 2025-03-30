@@ -1,11 +1,11 @@
-# Use the official PHP image with necessary extensions
 FROM php:8.2-fpm
 
+# Install system dependencies
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpng-dev \
-    libjpeg62-turbo-dev \
+    libjpeg-dev \
     libfreetype6-dev \
     libonig-dev \
     libxml2-dev \
@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y \
     pngquant \
     gifsicle \
     svgo \
-    && docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/ \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd pdo pdo_pgsql mbstring zip exif pcntl bcmath \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
