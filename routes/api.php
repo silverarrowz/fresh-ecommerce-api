@@ -48,7 +48,6 @@ Route::middleware(['auth:sanctum', IsAdmin::class])->group(function () {
 });
 
 
-
 // Корзины пользователей
 
 Route::middleware('auth:sanctum')->group(function () {

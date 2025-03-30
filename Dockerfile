@@ -16,7 +16,14 @@ RUN apt-get update && apt-get install -y \
     vim \
     libzip-dev \
     libpq-dev \
-    && docker-php-ext-install pdo pdo_pgsql mbstring zip exif pcntl bcmath gd
+    jpegoptim \
+    optipng \
+    pngquant \
+    gifsicle \
+    svgo \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo pdo_pgsql mbstring zip exif pcntl bcmath gd \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -35,4 +42,4 @@ RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
 # Expose port 8000 and start Laravel's built-in server
 EXPOSE 8000
-CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8000
+CMD php artisan storage:link php artisan key:generate php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8000

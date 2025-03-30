@@ -5,7 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\ProductImage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Intervention\Image\Laravel\Facades\Image;
+use Spatie\LaravelImageOptimizer\Facades\ImageOptimizer;
 
 class ProductController extends Controller
 {
@@ -64,17 +68,26 @@ class ProductController extends Controller
 
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $image) {
-                    $path = $image->store('products', 'public');
+                 $filename = Str::uuid() . '.webp';
 
-                    $product->images()->create([
-                        'path' => $path,
-                    ]);
+                 $img = Image::read($image)->scale(700)->toWebp(90);
+
+                 Storage::disk('public')->put("products/{$filename}", (string) $img);
+
+                 $path = storage_path("app/public/products/{$filename}");
+
+                 ImageOptimizer::optimize($path);
+
+                 $product->images()->create([
+                    'path' => "products/{$filename}",
+                ]);
                 }
             }
 
             $product->load('images');
             return response()->json([$product, 'message' => 'Product created successfully'], 201);
         } catch (\Exception $e) {
+            Log::error($e);
         return response()->json([
             'message' => 'Failed to create product',
             'error' => $e->getMessage()
