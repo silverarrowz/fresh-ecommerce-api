@@ -32,7 +32,8 @@ class ProductController extends Controller
         return response()->json(Product::latest()->take(10)->get());
     }
 
-    public function getByTag(Request $request) {
+    public function getByTag(Request $request)
+    {
         $tag = $request->input('tag');
         $products = Product::whereJsonContains('tags', $tag)->get();
 
@@ -64,36 +65,39 @@ class ProductController extends Controller
                 'images.*' => 'image|max:2048',
             ]);
 
-            $product = Product::create(($validated));
+            $product = Product::create($validated);
 
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $image) {
-                 $filename = Str::uuid() . '.webp';
+                    try {
+                        $filename = Str::uuid() . '.webp';
+                        $img = Image::read($image)->scale(700)->toWebp(90);
+                        Storage::disk('public')->put("products/{$filename}", (string) $img);
+                        $path = storage_path("app/public/products/{$filename}");
+                        ImageOptimizer::optimize($path);
 
-                 $img = Image::read($image)->scale(700)->toWebp(90);
-
-                 Storage::disk('public')->put("products/{$filename}", (string) $img);
-
-                 $path = storage_path("app/public/products/{$filename}");
-
-                 ImageOptimizer::optimize($path);
-
-                 $product->images()->create([
-                    'path' => "products/{$filename}",
-                ]);
+                        $product->images()->create([
+                            'path' => "products/{$filename}",
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to process image: ' . $e->getMessage());
+                        continue;
+                    }
                 }
             }
 
             $product->load('images');
-            return response()->json([$product, 'message' => 'Product created successfully'], 201);
+            return response()->json([
+                'product' => $product,
+                'message' => 'Product created successfully'
+            ], 201);
         } catch (\Exception $e) {
-            Log::error($e);
-        return response()->json([
-            'message' => 'Failed to create product',
-            'error' => $e->getMessage()
-        ], 500);
+            Log::error('Product creation failed: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to create product',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
     }
 
     /**
@@ -101,16 +105,15 @@ class ProductController extends Controller
      */
     public function show($id)
     {
-
         $product = Product::find($id);
 
         if (!$product) {
-            return response()->json(['message' => 'Product not found'], 404);
+            return response()->json([
+                'message' => 'Product not found'
+            ], 404);
         }
 
         return response()->json($product);
-
-
     }
 
     /**
@@ -133,19 +136,30 @@ class ProductController extends Controller
                 'price_old' => 'nullable|numeric|min:0',
                 'description' => 'required|string',
                 'stock' => 'required|numeric|min:0|max:2000',
-                'category' => 'required|string'
+                'category' => 'required|string',
+                'images' => 'nullable|array',
+                'images.*' => 'image|max:2048',
+                'imagesToDelete' => 'nullable|json'
             ]);
 
             $product->update($validated);
 
-
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $image) {
-                    $path = $image->store('products', 'public');
+                    try {
+                        $filename = Str::uuid() . '.webp';
+                        $img = Image::read($image)->scale(700)->toWebp(90);
+                        Storage::disk('public')->put("products/{$filename}", (string) $img);
+                        $path = storage_path("app/public/products/{$filename}");
+                        ImageOptimizer::optimize($path);
 
-                    $product->images()->create([
-                        'path' => $path,
-                    ]);
+                        $product->images()->create([
+                            'path' => "products/{$filename}",
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to process image: ' . $e->getMessage());
+                        continue;
+                    }
                 }
             }
 
@@ -156,26 +170,32 @@ class ProductController extends Controller
                         $image = ProductImage::find($imageId);
 
                         if ($image) {
-                            if (Storage::disk('public')->exists($image->path)) {
-                                Storage::disk('public')->delete($image->path);
+                            try {
+                                if (Storage::disk('public')->exists($image->path)) {
+                                    Storage::disk('public')->delete($image->path);
+                                }
+                                $image->delete();
+                            } catch (\Exception $e) {
+                                Log::error('Failed to delete image: ' . $e->getMessage());
+                                continue;
                             }
-
-                            $image->delete();
                         }
                     }
                 }
-
             }
 
             $product->load('images');
-            return response()->json([$product, 'message' => 'Product updated successfully']);
+            return response()->json([
+                'product' => $product,
+                'message' => 'Product updated successfully'
+            ]);
         } catch (\Exception $e) {
-           return response()->json([
-            'message' => 'Failed to update product',
-               'error' => $e->getMessage()
-           ], 500);
+            Log::error('Product update failed: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to update product',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
     }
 
     /**
@@ -186,17 +206,29 @@ class ProductController extends Controller
         $product = Product::find($id);
 
         if (!$product) {
-            return response()->json(['message' => 'Product not found'], 404);
+            return response()->json([
+                'message' => 'Product not found'
+            ], 404);
         }
 
-       try {
-        $product->delete();
-        return response()->json(['message' => 'Product deleted successfully']);
-       } catch (\Exception $e) {
-        return response()->json([
-            'message'=> 'Failed to delete product',
-            'error'=> $e->getMessage()
-        ], 500);
-       }
+        try {
+            foreach ($product->images as $image) {
+                if (Storage::disk('public')->exists($image->path)) {
+                    Storage::disk('public')->delete($image->path);
+                }
+            }
+
+            $product->delete();
+
+            return response()->json([
+                'message' => 'Product deleted successfully'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Product deletion failed: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to delete product',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }
