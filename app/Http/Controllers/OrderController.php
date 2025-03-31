@@ -45,7 +45,7 @@ class OrderController extends Controller
             $quantity = $item['quantity'];
             $subtotal = $price * $quantity;
 
-            $image = $product->images->first()->path ?? null;
+            $image = $product->images->first()->url ?? null;
 
             $items[] = [
                 'product_id' => $product->id,

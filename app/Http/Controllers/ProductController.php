@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Laravel\Facades\Image;
 use Spatie\LaravelImageOptimizer\Facades\ImageOptimizer;
+use GuzzleHttp\Client;
 
 class ProductController extends Controller
 {
@@ -24,7 +25,9 @@ class ProductController extends Controller
     public function getPaginatedProducts(Request $request)
     {
         $perPage = $request->input('per_page', 8);
-        return response()->json(Product::paginate($perPage));
+        return response()->json(
+            Product::latest()->paginate($perPage)
+        );
     }
 
     public function getLatest()
@@ -68,31 +71,60 @@ class ProductController extends Controller
             $product = Product::create($validated);
 
             if ($request->hasFile('images')) {
-                foreach ($request->file('images') as $image) {
-                    try {
-                        $filename = Str::uuid() . '.webp';
-                        $img = Image::read($image)->scale(700)->toWebp(90);
-                        Storage::disk('public')->put("products/{$filename}", (string) $img);
-                        $path = storage_path("app/public/products/{$filename}");
-                        ImageOptimizer::optimize($path);
+                foreach ($request->file('images') as $index => $image) {
 
+                    $filename = Str::uuid() . '.webp';
+
+                    $webpImage = Image::read($image)->scale(700)->toWebp(90);
+
+                    try {
+                        $client = new \GuzzleHttp\Client();
+                        $supabaseUrl = config('filesystems.disks.supabase.url');
+                        $bucket = config('filesystems.disks.supabase.bucket');
+                        $apiKey = config('filesystems.disks.supabase.key');
+
+                        $url = "{$supabaseUrl}/storage/v1/object/{$bucket}/products/{$filename}";
+                        $response = $client->request('POST', $url, [
+                            'headers' => [
+                                'apikey' => $apiKey,
+                                'Authorization' => 'Bearer ' . $apiKey,
+                                'Content-Type' => 'image/webp',
+                            ],
+                            'body' => (string) $webpImage,
+                        ]);
+
+                        $result = $response->getStatusCode() >= 200 && $response->getStatusCode() < 300;
+
+                        if (!$result) {
+                            throw new \Exception('Failed to upload file to Supabase');
+                        }
+
+                        $publicUrl = "{$supabaseUrl}/storage/v1/object/public/{$bucket}/products/{$filename}";
                         $product->images()->create([
                             'path' => "products/{$filename}",
+                            'url' => $publicUrl,
                         ]);
                     } catch (\Exception $e) {
-                        Log::error('Failed to process image: ' . $e->getMessage());
-                        continue;
+                        Log::error('Upload operation failed:', [
+                            'error' => $e->getMessage(),
+                            'file' => $e->getFile(),
+                            'line' => $e->getLine(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        throw $e;
                     }
                 }
+            } else {
+                Log::info('No images were uploaded with the request');
             }
 
             $product->load('images');
+
             return response()->json([
                 'product' => $product,
                 'message' => 'Product created successfully'
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Product creation failed: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Failed to create product',
                 'error' => $e->getMessage()
@@ -146,21 +178,49 @@ class ProductController extends Controller
 
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $image) {
-                    try {
-                        $filename = Str::uuid() . '.webp';
-                        $img = Image::read($image)->scale(700)->toWebp(90);
-                        Storage::disk('public')->put("products/{$filename}", (string) $img);
-                        $path = storage_path("app/public/products/{$filename}");
-                        ImageOptimizer::optimize($path);
 
+                    $filename = Str::uuid() . '.webp';
+                    $webpImage = Image::read($image)->scale(700)->toWebp(90);
+
+                    try {
+                        $client = new \GuzzleHttp\Client();
+                        $supabaseUrl = config('filesystems.disks.supabase.url');
+                        $bucket = config('filesystems.disks.supabase.bucket');
+                        $apiKey = config('filesystems.disks.supabase.key');
+
+                        $url = "{$supabaseUrl}/storage/v1/object/{$bucket}/products/{$filename}";
+                        $response = $client->request('POST', $url, [
+                            'headers' => [
+                                'apikey' => $apiKey,
+                                'Authorization' => 'Bearer ' . $apiKey,
+                                'Content-Type' => 'image/webp',
+                            ],
+                            'body' => (string) $webpImage,
+                        ]);
+
+                        $result = $response->getStatusCode() >= 200 && $response->getStatusCode() < 300;
+
+                        if (!$result) {
+                            throw new \Exception('Failed to directly upload file to Supabase');
+                        }
+
+                        $publicUrl = "{$supabaseUrl}/storage/v1/object/public/{$bucket}/products/{$filename}";
                         $product->images()->create([
                             'path' => "products/{$filename}",
+                            'url' => $publicUrl,
                         ]);
                     } catch (\Exception $e) {
-                        Log::error('Failed to process image: ' . $e->getMessage());
-                        continue;
+                        Log::error('Upload operation failed:', [
+                            'error' => $e->getMessage(),
+                            'file' => $e->getFile(),
+                            'line' => $e->getLine(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        throw $e;
                     }
                 }
+            } else {
+                Log::info('No images were uploaded with the request');
             }
 
             if ($request->has('imagesToDelete')) {
@@ -171,8 +231,8 @@ class ProductController extends Controller
 
                         if ($image) {
                             try {
-                                if (Storage::disk('public')->exists($image->path)) {
-                                    Storage::disk('public')->delete($image->path);
+                                if (Storage::disk('supabase')->exists($image->path)) {
+                                    Storage::disk('supabase')->delete($image->path);
                                 }
                                 $image->delete();
                             } catch (\Exception $e) {
@@ -213,15 +273,15 @@ class ProductController extends Controller
 
         try {
             foreach ($product->images as $image) {
-                if (Storage::disk('public')->exists($image->path)) {
-                    Storage::disk('public')->delete($image->path);
+                if (Storage::disk('supabase')->exists($image->path)) {
+                    Storage::disk('supabase')->delete($image->path);
                 }
             }
 
             $product->delete();
 
             return response()->json([
-                'message' => 'Product deleted successfully'
+                'message' => 'Product and associated images deleted successfully'
             ]);
         } catch (\Exception $e) {
             Log::error('Product deletion failed: ' . $e->getMessage());

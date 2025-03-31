@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Stripe\Stripe;
 use Stripe\Checkout\Session;
 
@@ -24,6 +25,7 @@ class StripeController extends Controller
         }
 
         $lineItems = [];
+        $enrichedItems = [];
         $total = 0;
 
         foreach ($items as $item) {
@@ -36,7 +38,7 @@ class StripeController extends Controller
             $quantity = $item['quantity'];
             $subtotal = $price * $quantity;
 
-            $image = optional($product->images->first())->path ?? null;
+            $image = optional($product->images->first())->url ?? null;
 
             $enrichedItems[] = [
                 'product_id' => $product->id,
@@ -52,6 +54,7 @@ class StripeController extends Controller
                     'currency' => 'rub',
                     'product_data' => [
                         'name' => $product->title,
+                        'images' => $image ? [$image] : [],
                     ],
                     'unit_amount' => $product->price * 100,
                 ],
@@ -61,35 +64,47 @@ class StripeController extends Controller
             $total += $product->price * $item['quantity'];
         }
 
-        Stripe::setApiKey(config('stripe.secret'));
+        Stripe::setApiKey(config('services.stripe.secret'));
 
         $order = Order::create([
             'user_id' => $user->id,
             'items' => $enrichedItems,
             'total' => $total,
             'payment_status' => 'pending',
-
         ]);
 
-        $session = Session::create([
-            'line_items' => $lineItems,
-            'mode' => 'payment',
-            'payment_method_types' => ['card'],
-            'success_url' => env('STRIPE_SUCCESS_URL') . '?session_id={CHECKOUT_SESSION_ID}',
-            'cancel_url' => env('STRIPE_CANCEL_URL'),
-            'metadata' => [
-                'user_id' => $user->id,
-                'order_id' => $order->id,
-            ]
-        ]);
+        $successUrl = config('services.stripe.success_url');
+        $cancelUrl = config('services.stripe.cancel_url');
 
-        $order->update([
-            'stripe_session_id' => $session->id,
-        ]);
+        try {
+            $session = Session::create([
+                'line_items' => $lineItems,
+                'mode' => 'payment',
+                'payment_method_types' => ['card'],
+                'success_url' => $successUrl . '?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => $cancelUrl,
+                'metadata' => [
+                    'user_id' => $user->id,
+                    'order_id' => $order->id,
+                ]
+            ]);
+
+            $order->update([
+                'stripe_session_id' => $session->id,
+            ]);
 
 
-        return response()->json([
-            'url' => $session->url
-        ]);
+            return response()->json([
+                'url' => $session->url
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Stripe error: ' . $e->getMessage());
+            $order->delete();
+
+            return response()->json([
+                'error' => 'Payment processing error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 }
