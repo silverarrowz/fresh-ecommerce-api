@@ -83,7 +83,15 @@ class ProductController extends Controller
                         $bucket = config('filesystems.disks.supabase.bucket');
                         $apiKey = config('filesystems.disks.supabase.key');
 
+                        Log::info('Supabase configuration:', [
+                            'url' => $supabaseUrl,
+                            'bucket' => $bucket,
+                            'has_api_key' => !empty($apiKey),
+                        ]);
+
                         $url = "{$supabaseUrl}/storage/v1/object/{$bucket}/products/{$filename}";
+                        Log::info('Upload URL:', ['url' => $url]);
+
                         $response = $client->request('POST', $url, [
                             'headers' => [
                                 'apikey' => $apiKey,
@@ -100,6 +108,8 @@ class ProductController extends Controller
                         }
 
                         $publicUrl = "{$supabaseUrl}/storage/v1/object/public/{$bucket}/products/{$filename}";
+                        Log::info('Public URL:', ['url' => $publicUrl]);
+
                         $product->images()->create([
                             'path' => "products/{$filename}",
                             'url' => $publicUrl,
