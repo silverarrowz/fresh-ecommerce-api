@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductImage;
 use Illuminate\Http\Request;
@@ -9,7 +10,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Laravel\Facades\Image;
-use Spatie\LaravelImageOptimizer\Facades\ImageOptimizer;
 use GuzzleHttp\Client;
 
 class ProductController extends Controller
@@ -35,20 +35,47 @@ class ProductController extends Controller
         return response()->json(Product::latest()->take(10)->get());
     }
 
+    public function search(Request $request)
+    {
+        $query = $request->input('query');
+        $limit = $request->input('limit', 10);
+
+        if (!$query) {
+            return response()->json([], 200);
+        }
+
+        $products = Product::where('title', 'LIKE', "%{$query}%")
+            ->orWhereHas('category', function ($q) use ($query) {
+                $q->where('name', 'LIKE', "%{$query}%");
+            })
+            ->limit($limit)
+            ->get();
+
+        return response()->json($products);
+    }
+
+    public function getByCategory(string $slug, Request $request) {
+        $category = Category::where('slug', $slug)->first();
+
+        if (!$category) {
+            return response()->json(['message' => 'Category not found'], 404);
+        }
+
+        $limit = $request->input('limit', 10);
+        $products = Product::where('category_id', $category->id)
+        ->limit($limit)
+        ->get();
+
+        return response()->json($products);
+    }
+
+
     public function getByTag(Request $request)
     {
         $tag = $request->input('tag');
         $products = Product::whereJsonContains('tags', $tag)->get();
 
         return response()->json($products);
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
     }
 
     /**
@@ -63,7 +90,7 @@ class ProductController extends Controller
                 'price_old' => 'nullable|numeric|min:0',
                 'description' => 'required|string',
                 'stock' => 'required|numeric|min:0|max:2000',
-                'category' => 'required|string',
+                'category_id' => 'required|exists:categories,id',
                 'images' => 'nullable|array',
                 'images.*' => 'image|max:2048',
             ]);
@@ -78,7 +105,7 @@ class ProductController extends Controller
                     $webpImage = Image::read($image)->scale(700)->toWebp(90);
 
                     try {
-                        $client = new \GuzzleHttp\Client();
+                        $client = new Client();
                         $supabaseUrl = config('filesystems.disks.supabase.url');
                         $bucket = config('filesystems.disks.supabase.bucket');
                         $apiKey = config('filesystems.disks.supabase.key');
@@ -128,7 +155,7 @@ class ProductController extends Controller
                 Log::info('No images were uploaded with the request');
             }
 
-            $product->load('images');
+            $product->load(['images', 'category']);
 
             return response()->json([
                 'product' => $product,
@@ -159,14 +186,6 @@ class ProductController extends Controller
     }
 
     /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Product $product)
-    {
-        //
-    }
-
-    /**
      * Update the specified resource in storage.
      */
     public function update(Request $request, Product $product)
@@ -178,7 +197,7 @@ class ProductController extends Controller
                 'price_old' => 'nullable|numeric|min:0',
                 'description' => 'required|string',
                 'stock' => 'required|numeric|min:0|max:2000',
-                'category' => 'required|string',
+                'category_id' => 'required|exists:categories,id',
                 'images' => 'nullable|array',
                 'images.*' => 'image|max:2048',
                 'imagesToDelete' => 'nullable|json'
@@ -193,7 +212,7 @@ class ProductController extends Controller
                     $webpImage = Image::read($image)->scale(700)->toWebp(90);
 
                     try {
-                        $client = new \GuzzleHttp\Client();
+                        $client = new Client();
                         $supabaseUrl = config('filesystems.disks.supabase.url');
                         $bucket = config('filesystems.disks.supabase.bucket');
                         $apiKey = config('filesystems.disks.supabase.key');
@@ -254,7 +273,7 @@ class ProductController extends Controller
                 }
             }
 
-            $product->load('images');
+            $product->load(['images', 'category']);
             return response()->json([
                 'product' => $product,
                 'message' => 'Product updated successfully'
