@@ -44,9 +44,9 @@ class ProductController extends Controller
             return response()->json([], 200);
         }
 
-        $products = Product::where('title', 'LIKE', "%{$query}%")
+        $products = Product::where('title', 'ILIKE', "%{$query}%")
             ->orWhereHas('category', function ($q) use ($query) {
-                $q->where('name', 'LIKE', "%{$query}%");
+                $q->where('name', 'ILIKE', "%{$query}%");
             })
             ->limit($limit)
             ->get();
